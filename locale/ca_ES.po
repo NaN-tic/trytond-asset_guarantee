@@ -1,0 +1,15 @@
+# 
+msgid ""
+msgstr "Content-Type: text/plain; charset=utf-8\n"
+
+msgctxt "field:asset,guarantee:"
+msgid "Guarantee"
+msgstr "Garantia"
+
+msgctxt "field:asset,guarantee_resource:"
+msgid "Resource"
+msgstr "Recurs"
+
+msgctxt "field:sale.line,asset:"
+msgid "Asset"
+msgstr "Actiu"
