@@ -13,12 +13,11 @@ class Asset:
     __name__ = 'asset'
     guarantee_resource = fields.Function(fields.Char('Resource'),
         'on_change_with_guarantee_resource')
-    guarantee = fields.Many2One('guarantee.guarantee',
-            'Guarantee',
-            context={
-                'document': Eval('guarantee_resource'),
-                },
-            depends=['guarantee_resource'])
+    guarantee = fields.Many2One('guarantee.guarantee', 'Guarantee',
+        context={
+            'document': Eval('guarantee_resource'),
+            },
+        depends=['guarantee_resource'])
 
     @fields.depends('sale')
     def on_change_with_guarantee_resource(self, name=None):
@@ -43,7 +42,10 @@ class Guarantee:
 
 class SaleLine:
     __name__ = 'sale.line'
-    asset = fields.Many2One('asset', 'Asset')
+    asset = fields.Many2One('asset', 'Asset',
+        states={
+            'invisible': Eval('type') != 'line',
+        })
 
     @fields.depends('asset')
     def on_change_with_line_in_guarantee(self, name=None):
