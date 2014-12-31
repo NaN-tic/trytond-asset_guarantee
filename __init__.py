@@ -9,4 +9,5 @@ def register():
         Asset,
         Guarantee,
         SaleLine,
+        InvoiceLine,
         module='asset_guarantee', type_='model')
