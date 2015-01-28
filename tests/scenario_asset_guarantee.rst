@@ -10,6 +10,7 @@ Imports::
     >>> from operator import attrgetter
     >>> from proteus import config, Model, Wizard
     >>> today = datetime.date.today()
+    >>> tomorrow = today + relativedelta(days=1)
 
 Create database::
 
@@ -143,7 +144,7 @@ Create product::
     >>> template.name = 'product'
     >>> template.category = category
     >>> template.default_uom = unit
-    >>> template.type = 'assets'
+    >>> template.type = 'goods'
     >>> template.purchasable = True
     >>> template.salable = True
     >>> template.list_price = Decimal('10')
@@ -154,6 +155,9 @@ Create product::
     >>> template.save()
     >>> product.template = template
     >>> product.save()
+    >>> second_product = Product()
+    >>> second_product.template = template
+    >>> second_product.save()
 
     >>> service = Product()
     >>> template = ProductTemplate()
@@ -179,13 +183,40 @@ Create payment term::
     >>> payment_term.lines.append(payment_term_line)
     >>> payment_term.save()
 
-Create an asset::
+Create assets::
 
     >>> Asset = Model.get('asset')
     >>> asset = Asset()
     >>> asset.name = 'Asset'
     >>> asset.product = product
     >>> asset.save()
+    >>> second_asset = Asset()
+    >>> second_asset.name = 'Second Asset'
+    >>> second_asset.product = product
+    >>> second_asset.save()
+
+Create an Inventory::
+
+    >>> Inventory = Model.get('stock.inventory')
+    >>> InventoryLine = Model.get('stock.inventory.line')
+    >>> Location = Model.get('stock.location')
+    >>> storage, = Location.find([
+    ...         ('code', '=', 'STO'),
+    ...         ])
+    >>> inventory = Inventory()
+    >>> inventory.location = storage
+    >>> inventory_line = inventory.lines.new()
+    >>> inventory_line.product = product
+    >>> inventory_line.quantity = 100.0
+    >>> inventory_line.expected_quantity = 0.0
+    >>> inventory_line = inventory.lines.new()
+    >>> inventory_line.product = second_product
+    >>> inventory_line.quantity = 100.0
+    >>> inventory_line.expected_quantity = 0.0
+    >>> inventory.click('confirm')
+    >>> inventory.state
+    u'done'
+
 
 Configure Guarantee::
 
@@ -265,3 +296,148 @@ Process the sale and check invoice lines are related to guarantee::
     >>> non_guarantee_line.amount
     Decimal('100.00')
 
+
+Create a sale with guarnatee type and two products::
+
+    >>> sale = Sale()
+    >>> sale.party = customer
+    >>> sale.payment_term = payment_term
+    >>> sale.guarantee_type = guarantee_type
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = product
+    >>> sale_line.asset = second_asset
+    >>> sale_line.quantity = 10
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = second_product
+    >>> sale_line.asset = second_asset
+    >>> sale_line.quantity = 10
+    >>> sale.click('quote')
+    >>> sale.click('confirm')
+    >>> sale.click('process')
+
+After partialy processing the shipment there is no guarantee::
+
+    >>> shipment, = sale.shipments
+    >>> for move in shipment.inventory_moves:
+    ...     move.quantity = 5.0
+    >>> shipment.click('assign_try')
+    True
+    >>> shipment.click('pack')
+    >>> shipment.click('done')
+    >>> guarantees = Guarantee.find([
+    ...         ('document', '=', 'asset,' + str(second_asset.id)),
+    ...         ])
+    >>> len(guarantees)
+    0
+
+After fully sending the goods a new guarantee is created for the asset::
+
+    >>> sale.reload()
+    >>> _, shipment = sale.shipments
+    >>> shipment.effective_date = tomorrow
+    >>> shipment.click('assign_try')
+    True
+    >>> shipment.click('pack')
+    >>> shipment.click('done')
+    >>> guarantee, = Guarantee.find([
+    ...         ('document', '=', 'asset,' + str(second_asset.id)),
+    ...         ])
+    >>> guarantee.type == guarantee_type
+    True
+    >>> guarantee.start_date == tomorrow
+    True
+    >>> guarantee.state
+    u'draft'
+    >>> guarantee.sale_lines == sale.lines
+    True
+
+
+Guarantee should not apply on sales until tomorrow::
+
+    >>> sale = Sale()
+    >>> sale.party = customer
+    >>> sale.payment_term = payment_term
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = service
+    >>> sale_line.quantity = 10
+    >>> sale_line.asset = second_asset
+    >>> sale_line.guarantee
+    >>> bool(sale_line.line_in_guarantee)
+    False
+    >>> sale = Sale()
+    >>> sale.party = customer
+    >>> sale.sale_date = tomorrow
+    >>> sale.payment_term = payment_term
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = service
+    >>> sale_line.quantity = 10
+    >>> sale_line.asset = second_asset
+    >>> sale_line.guarantee == guarantee
+    True
+    >>> bool(sale_line.line_in_guarantee)
+    True
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = product
+    >>> sale_line.quantity = 10
+    >>> sale_line.asset = second_asset
+    >>> sale_line.guarantee == guarantee
+    True
+    >>> bool(sale_line.line_in_guarantee)
+    False
+
+After processing the sale guarantees are linked to invoice lines::
+
+    >>> sale.click('quote')
+    >>> sale.click('confirm')
+    >>> sale.click('process')
+    >>> invoice, = sale.invoices
+    >>> guarantee_line, non_guarantee_line = invoice.lines
+    >>> guarantee_line.product == service
+    True
+    >>> guarantee_line.guarantee == guarantee
+    True
+    >>> guarantee_line.guarantee_asset == second_asset
+    True
+    >>> bool(guarantee_line.line_in_guarantee)
+    True
+    >>> non_guarantee_line.product == product
+    True
+    >>> non_guarantee_line.guarantee == guarantee
+    True
+    >>> bool(non_guarantee_line.line_in_guarantee)
+    False
+
+
+Guarantee should not apply on invoices until tomorrow::
+
+    >>> Invoice = Model.get('account.invoice')
+    >>> invoice = Invoice()
+    >>> invoice.party = customer
+    >>> invoice.payment_term = payment_term
+    >>> invoice_line = invoice.lines.new()
+    >>> invoice_line.product = service
+    >>> invoice_line.quantity = 10
+    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.guarantee
+    >>> bool(invoice_line.line_in_guarantee)
+    False
+    >>> invoice = Invoice()
+    >>> invoice.party = customer
+    >>> invoice.invoice_date = tomorrow
+    >>> invoice.payment_term = payment_term
+    >>> invoice_line = invoice.lines.new()
+    >>> invoice_line.product = service
+    >>> invoice_line.quantity = 10
+    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.guarantee == guarantee
+    True
+    >>> bool(invoice_line.line_in_guarantee)
+    True
+    >>> invoice_line = invoice.lines.new()
+    >>> invoice_line.product = product
+    >>> invoice_line.quantity = 10
+    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.guarantee == guarantee
+    True
+    >>> bool(invoice_line.line_in_guarantee)
+    False

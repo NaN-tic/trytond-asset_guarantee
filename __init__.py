@@ -8,6 +8,7 @@ def register():
     Pool.register(
         Asset,
         Guarantee,
+        Sale,
         SaleLine,
         InvoiceLine,
         module='asset_guarantee', type_='model')

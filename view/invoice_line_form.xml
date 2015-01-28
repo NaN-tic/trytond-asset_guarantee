@@ -4,8 +4,8 @@
 <data>
     <xpath expr="/form/notebook/page/label[@name='guarantee']"
             position="before">
-        <label name="asset"/>
-        <field name="asset"/>
+        <label name="guarantee_asset"/>
+        <field name="guarantee_asset"/>
         <newline/>
     </xpath>
 </data>

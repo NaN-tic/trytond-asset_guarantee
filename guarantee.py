@@ -1,29 +1,19 @@
 # The COPYRIGHT file at the top level of this repository contains the full
 # copyright notices and license terms.
+from itertools import groupby
 from trytond.model import fields
-from trytond.pool import PoolMeta
+from trytond.pool import Pool, PoolMeta
 from trytond.pyson import Eval
 from trytond.transaction import Transaction
 
-__all__ = ['Asset', 'Guarantee', 'SaleLine', 'InvoiceLine']
+__all__ = ['Asset', 'Guarantee', 'Sale', 'SaleLine', 'InvoiceLine']
 __metaclass__ = PoolMeta
 
 
 class Asset:
     __name__ = 'asset'
-    guarantee_resource = fields.Function(fields.Char('Resource'),
-        'on_change_with_guarantee_resource')
-    guarantee = fields.Many2One('guarantee.guarantee', 'Guarantee',
-        context={
-            'document': Eval('guarantee_resource'),
-            },
-        depends=['guarantee_resource'])
-
-    @fields.depends('sale')
-    def on_change_with_guarantee_resource(self, name=None):
-        if self.id:
-            return str(self)
-        return ''
+    guarantees = fields.One2Many('guarantee.guarantee', 'document',
+        'Guarantees')
 
 
 class Guarantee:
@@ -40,52 +30,131 @@ class Guarantee:
         return Transaction().context.get('document')
 
 
+class Sale:
+    __name__ = 'sale.sale'
+
+    guarantee_type = fields.Many2One('guarantee.type', 'Guarantee Type',
+        states={
+            'readonly': Eval('state') != 'draft',
+            },
+        depends=['state'])
+
+    @classmethod
+    def process(cls, sales):
+        pool = Pool()
+        Guarantee = pool.get('guarantee.guarantee')
+        super(Sale, cls).process(sales)
+        guarantees = []
+        for sale in sales:
+            if not sale.guarantee_type:
+                continue
+            for line in sale.lines:
+                guarantees += line.get_asset_guarantees()
+        if guarantees:
+            to_create = []
+            for key, grouped_guarantees in groupby(guarantees,
+                    key=cls._group_asset_guarantees_key):
+                guarantee = grouped_guarantees.next()
+                for g in grouped_guarantees:
+                    guarantee.sale_lines += g.sale_lines
+                to_create.append(guarantee._save_values)
+            Guarantee.create(to_create)
+
+    @classmethod
+    def _group_asset_guarantees_key(cls, guarantee):
+        'The key to group guarantees created by sale'
+        return ({l.sale for l in guarantee.sale_lines}, guarantee.document)
+
+
 class SaleLine:
     __name__ = 'sale.line'
-    asset = fields.Many2One('asset', 'Asset', states={
+    asset = fields.Many2One('asset', 'Asset',
+        states={
             'invisible': Eval('type') != 'line',
-            })
+            },
+        depends=['type'])
 
     @classmethod
     def __setup__(cls):
         super(SaleLine, cls).__setup__()
         cls.line_in_guarantee.on_change_with.add('asset')
 
-    @fields.depends('asset', methods=['guarantee'])
+    @fields.depends('asset', '_parent_sale.sale_date', methods=['guarantee'])
     def on_change_asset(self):
+        pool = Pool()
+        Date = pool.get('ir.date')
+        today = Date.today()
         changes = {}
-        if self.asset and self.asset.guarantee:
-            changes['guarantee'] = self.asset.guarantee.id
-            changes['guarantee.rec_name'] = self.asset.guarantee.rec_name
-            self.guarantee = self.asset.guarantee
-        changes.update(self.on_change_guarantee())
+        if self.asset:
+            for guarantee in self.asset.guarantees:
+                if guarantee.applies_for_date(self.sale.sale_date or today):
+                    changes['guarantee'] = guarantee.id
+                    changes['guarantee.rec_name'] = guarantee.rec_name
+                    self.guarantee = guarantee
+                    changes.update(self.on_change_guarantee())
+                    changes.update({
+                            'line_in_guarantee': (
+                                self.on_change_with_line_in_guarantee()),
+                            })
+                    break
         return changes
 
     def get_invoice_line(self, invoice_type):
         lines = super(SaleLine, self).get_invoice_line(invoice_type)
         if self.asset:
             for line in lines:
-                line.asset = self.asset
+                line.guarantee_asset = self.asset
         return lines
+
+    def get_asset_guarantees(self):
+        pool = Pool()
+        Guarantee = pool.get('guarantee.guarantee')
+        if not self.asset or not self.move_done:
+            return []
+        start_date = max(m.effective_date for m in self.moves)
+        guarantee = Guarantee()
+        guarantee.party = self.sale.party
+        guarantee.document = str(self.asset)
+        guarantee.type = self.sale.guarantee_type
+        guarantee.start_date = start_date
+        guarantee.end_date = guarantee.on_change_with_end_date()
+        guarantee.sale_lines = [self]
+        guarantee.state = 'draft'
+        return [guarantee]
 
 
 class InvoiceLine:
     __name__ = 'account.invoice.line'
-    asset = fields.Many2One('asset', 'Asset', states={
+    guarantee_asset = fields.Many2One('asset', 'Asset',
+        states={
             'invisible': Eval('type') != 'line',
-            })
+            },
+        depends=['type'])
 
     @classmethod
     def __setup__(cls):
         super(InvoiceLine, cls).__setup__()
-        cls.line_in_guarantee.on_change_with.add('asset')
+        cls.line_in_guarantee.on_change_with.add('guarantee_asset')
 
-    @fields.depends('asset', methods=['guarantee'])
-    def on_change_asset(self):
+    @fields.depends('guarantee_asset', '_parent_invoice.invoice_date',
+        methods=['guarantee'])
+    def on_change_guarantee_asset(self):
+        pool = Pool()
+        Date = pool.get('ir.date')
+        today = Date.today()
         changes = {}
-        if self.asset and self.asset.guarantee:
-            changes['guarantee'] = self.asset.guarantee.id
-            changes['guarantee.rec_name'] = self.asset.guarantee.rec_name
-            self.guarantee = self.asset.guarantee
+        if self.guarantee_asset and self.guarantee_asset.guarantees:
+            invoice_date = self.invoice.invoice_date or today
+            for guarantee in self.guarantee_asset.guarantees:
+                if guarantee.applies_for_date(invoice_date):
+                    changes['guarantee'] = guarantee.id
+                    changes['guarantee.rec_name'] = guarantee.rec_name
+                    self.guarantee = guarantee
+                    changes.update(self.on_change_guarantee())
+                    changes.update({
+                            'line_in_guarantee': (
+                                self.on_change_with_line_in_guarantee()),
+                            })
+                    break
         changes.update(self.on_change_guarantee())
         return changes

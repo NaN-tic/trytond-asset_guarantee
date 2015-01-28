@@ -6,14 +6,14 @@ msgctxt "field:account.invoice.line,asset:"
 msgid "Asset"
 msgstr "Actiu"
 
-msgctxt "field:asset,guarantee:"
-msgid "Guarantee"
-msgstr "Garantia"
-
-msgctxt "field:asset,guarantee_resource:"
-msgid "Resource"
-msgstr "Recurs"
+msgctxt "field:guarantee.guarantee,notes:"
+msgid "Notes"
+msgstr "Notes"
 
 msgctxt "field:sale.line,asset:"
 msgid "Asset"
 msgstr "Actiu"
+
+msgctxt "field:sale.sale,guarantee_type:"
+msgid "Guarantee Type"
+msgstr "Tipus de garantia"
