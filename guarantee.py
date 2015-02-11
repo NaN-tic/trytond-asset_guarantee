@@ -69,6 +69,9 @@ class Sale:
 class SaleLine:
     __name__ = 'sale.line'
     asset = fields.Many2One('asset', 'Asset',
+        domain=[
+            ('owner', '=', Eval('_parent_sale', {}).get('party')),
+            ],
         states={
             'invisible': Eval('type') != 'line',
             },

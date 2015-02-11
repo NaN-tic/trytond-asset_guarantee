@@ -189,10 +189,12 @@ Create assets::
     >>> asset = Asset()
     >>> asset.name = 'Asset'
     >>> asset.product = product
+    >>> asset.owner = customer
     >>> asset.save()
     >>> second_asset = Asset()
     >>> second_asset.name = 'Second Asset'
     >>> second_asset.product = product
+    >>> second_asset.owner = customer
     >>> second_asset.save()
 
 Create an Inventory::

@@ -6,6 +6,10 @@ msgctxt "field:account.invoice.line,asset:"
 msgid "Asset"
 msgstr "Activo"
 
+msgctxt "field:asset,guarantees:"
+msgid "Guarantees"
+msgstr "Garantias"
+
 msgctxt "field:guarantee.guarantee,notes:"
 msgid "Notes"
 msgstr "Notas"
