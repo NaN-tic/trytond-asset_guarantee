@@ -40,6 +40,17 @@ class Sale:
         depends=['state'])
 
     @classmethod
+    def __setup__(cls):
+        super(Sale, cls).__setup__()
+        if not 'asset' in cls.lines.depends:
+            cls.lines.context.update({
+                    'asset': Eval('asset'),
+                    'sale_date': Eval('sale_date'),
+                    })
+            cls.lines.depends.append('asset')
+            cls.lines.depends.append('sale_date')
+
+    @classmethod
     def process(cls, sales):
         pool = Pool()
         Guarantee = pool.get('guarantee.guarantee')
@@ -68,56 +79,36 @@ class Sale:
 
 class SaleLine:
     __name__ = 'sale.line'
-    asset = fields.Many2One('asset', 'Asset',
-        domain=[
-            ('owner', '=', Eval('_parent_sale', {}).get('party')),
-            ],
-        states={
-            'invisible': Eval('type') != 'line',
-            },
-        depends=['type'])
 
     @classmethod
     def __setup__(cls):
         super(SaleLine, cls).__setup__()
-        cls.line_in_guarantee.on_change_with.add('asset')
+        cls.line_in_guarantee.on_change_with.add('asset_used')
 
-    @fields.depends('asset', '_parent_sale.sale_date', methods=['guarantee'])
-    def on_change_asset(self):
+    @staticmethod
+    def default_guarantee():
         pool = Pool()
         Date = pool.get('ir.date')
+        Asset = pool.get('asset')
         today = Date.today()
-        changes = {}
-        if self.asset:
-            for guarantee in self.asset.guarantees:
-                if guarantee.applies_for_date(self.sale.sale_date or today):
-                    changes['guarantee'] = guarantee.id
-                    changes['guarantee.rec_name'] = guarantee.rec_name
-                    self.guarantee = guarantee
-                    changes.update(self.on_change_guarantee())
-                    changes.update({
-                            'line_in_guarantee': (
-                                self.on_change_with_line_in_guarantee()),
-                            })
-                    break
-        return changes
-
-    def get_invoice_line(self, invoice_type):
-        lines = super(SaleLine, self).get_invoice_line(invoice_type)
-        if self.asset:
-            for line in lines:
-                line.guarantee_asset = self.asset
-        return lines
+        context = Transaction().context
+        asset_id = context.get('asset')
+        if asset_id:
+            asset = Asset(asset_id)
+            sale_date = context.get('sale_date') or today
+            for guarantee in asset.guarantees:
+                if guarantee.applies_for_date(sale_date):
+                    return guarantee.id
 
     def get_asset_guarantees(self):
         pool = Pool()
         Guarantee = pool.get('guarantee.guarantee')
-        if not self.asset or not self.move_done:
+        if not self.asset_used or not self.move_done:
             return []
         start_date = max(m.effective_date for m in self.moves)
         guarantee = Guarantee()
         guarantee.party = self.sale.party
-        guarantee.document = str(self.asset)
+        guarantee.document = str(self.asset_used)
         guarantee.type = self.sale.guarantee_type
         guarantee.start_date = start_date
         guarantee.end_date = guarantee.on_change_with_end_date()
@@ -128,27 +119,22 @@ class SaleLine:
 
 class InvoiceLine:
     __name__ = 'account.invoice.line'
-    guarantee_asset = fields.Many2One('asset', 'Asset',
-        states={
-            'invisible': Eval('type') != 'line',
-            },
-        depends=['type'])
 
     @classmethod
     def __setup__(cls):
         super(InvoiceLine, cls).__setup__()
-        cls.line_in_guarantee.on_change_with.add('guarantee_asset')
+        cls.line_in_guarantee.on_change_with.add('invoice_asset')
 
-    @fields.depends('guarantee_asset', '_parent_invoice.invoice_date',
+    @fields.depends('invoice_asset', '_parent_invoice.invoice_date',
         methods=['guarantee'])
-    def on_change_guarantee_asset(self):
+    def on_change_invoice_asset(self):
         pool = Pool()
         Date = pool.get('ir.date')
         today = Date.today()
         changes = {}
-        if self.guarantee_asset and self.guarantee_asset.guarantees:
+        if self.invoice_asset and self.invoice_asset.guarantees:
             invoice_date = self.invoice.invoice_date or today
-            for guarantee in self.guarantee_asset.guarantees:
+            for guarantee in self.invoice_asset.guarantees:
                 if guarantee.applies_for_date(invoice_date):
                     changes['guarantee'] = guarantee.id
                     changes['guarantee.rec_name'] = guarantee.rec_name

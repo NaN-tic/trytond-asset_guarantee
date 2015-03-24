@@ -246,8 +246,7 @@ Create a guarantee for the customer and the asset::
     >>> guarantee.document = asset
     >>> guarantee.type = guarantee_type
     >>> guarantee.start_date = today
-    >>> guarantee.save()
-    >>> guarantee.reload()
+    >>> guarantee.click('active')
     >>> bool(guarantee.in_guarantee)
     True
 
@@ -255,18 +254,21 @@ Create a sale with a line in guarantee::
 
     >>> Sale = Model.get('sale.sale')
     >>> sale = Sale()
+    >>> sale.asset = asset
     >>> sale.party = customer
     >>> sale.payment_term = payment_term
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = service
     >>> sale_line.quantity = 10
-    >>> sale_line.guarantee = guarantee
+    >>> sale_line.guarantee == guarantee
+    True
     >>> bool(sale_line.line_in_guarantee)
     True
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = product
     >>> sale_line.quantity = 10
-    >>> sale_line.guarantee = guarantee
+    >>> sale_line.guarantee == guarantee
+    True
     >>> bool(sale_line.line_in_guarantee)
     False
     >>> sale.save()
@@ -304,14 +306,13 @@ Create a sale with guarnatee type and two products::
     >>> sale = Sale()
     >>> sale.party = customer
     >>> sale.payment_term = payment_term
+    >>> sale.asset = second_asset
     >>> sale.guarantee_type = guarantee_type
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = product
-    >>> sale_line.asset = second_asset
     >>> sale_line.quantity = 10
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = second_product
-    >>> sale_line.asset = second_asset
     >>> sale_line.quantity = 10
     >>> sale.click('quote')
     >>> sale.click('confirm')
@@ -352,28 +353,31 @@ After fully sending the goods a new guarantee is created for the asset::
     u'draft'
     >>> guarantee.sale_lines == sale.lines
     True
+    >>> guarantee.click('active')
+    >>> guarantee.state
+    u'active'
 
 
 Guarantee should not apply on sales until tomorrow::
 
     >>> sale = Sale()
     >>> sale.party = customer
+    >>> sale.asset = second_asset
     >>> sale.payment_term = payment_term
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = service
     >>> sale_line.quantity = 10
-    >>> sale_line.asset = second_asset
     >>> sale_line.guarantee
     >>> bool(sale_line.line_in_guarantee)
     False
     >>> sale = Sale()
     >>> sale.party = customer
     >>> sale.sale_date = tomorrow
+    >>> sale.asset = second_asset
     >>> sale.payment_term = payment_term
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = service
     >>> sale_line.quantity = 10
-    >>> sale_line.asset = second_asset
     >>> sale_line.guarantee == guarantee
     True
     >>> bool(sale_line.line_in_guarantee)
@@ -381,7 +385,6 @@ Guarantee should not apply on sales until tomorrow::
     >>> sale_line = sale.lines.new()
     >>> sale_line.product = product
     >>> sale_line.quantity = 10
-    >>> sale_line.asset = second_asset
     >>> sale_line.guarantee == guarantee
     True
     >>> bool(sale_line.line_in_guarantee)
@@ -398,7 +401,7 @@ After processing the sale guarantees are linked to invoice lines::
     True
     >>> guarantee_line.guarantee == guarantee
     True
-    >>> guarantee_line.guarantee_asset == second_asset
+    >>> guarantee_line.invoice_asset == second_asset
     True
     >>> bool(guarantee_line.line_in_guarantee)
     True
@@ -419,7 +422,7 @@ Guarantee should not apply on invoices until tomorrow::
     >>> invoice_line = invoice.lines.new()
     >>> invoice_line.product = service
     >>> invoice_line.quantity = 10
-    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.invoice_asset = second_asset
     >>> invoice_line.guarantee
     >>> bool(invoice_line.line_in_guarantee)
     False
@@ -430,7 +433,7 @@ Guarantee should not apply on invoices until tomorrow::
     >>> invoice_line = invoice.lines.new()
     >>> invoice_line.product = service
     >>> invoice_line.quantity = 10
-    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.invoice_asset = second_asset
     >>> invoice_line.guarantee == guarantee
     True
     >>> bool(invoice_line.line_in_guarantee)
@@ -438,7 +441,7 @@ Guarantee should not apply on invoices until tomorrow::
     >>> invoice_line = invoice.lines.new()
     >>> invoice_line.product = product
     >>> invoice_line.quantity = 10
-    >>> invoice_line.guarantee_asset = second_asset
+    >>> invoice_line.invoice_asset = second_asset
     >>> invoice_line.guarantee == guarantee
     True
     >>> bool(invoice_line.line_in_guarantee)
