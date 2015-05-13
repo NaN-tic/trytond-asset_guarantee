@@ -246,7 +246,7 @@ Create a guarantee for the customer and the asset::
     >>> guarantee.document = asset
     >>> guarantee.type = guarantee_type
     >>> guarantee.start_date = today
-    >>> guarantee.click('active')
+    >>> guarantee.save()
     >>> bool(guarantee.in_guarantee)
     True
 
@@ -349,13 +349,8 @@ After fully sending the goods a new guarantee is created for the asset::
     True
     >>> guarantee.start_date == tomorrow
     True
-    >>> guarantee.state
-    u'draft'
     >>> guarantee.sale_lines == sale.lines
     True
-    >>> guarantee.click('active')
-    >>> guarantee.state
-    u'active'
 
 
 Guarantee should not apply on sales until tomorrow::

@@ -1,3 +1,4 @@
+* Adapt to latest changes in guarantee module
 * Ensure the asset in sale line is owned by the sale party
 * Automate gaurantee creation from sales
 * Add test scenario
