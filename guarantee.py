@@ -57,10 +57,7 @@ class Sale:
         super(Sale, cls).process(sales)
         guarantees = []
         for sale in sales:
-            if not sale.guarantee_type:
-                continue
-            for line in sale.lines:
-                guarantees += line.get_asset_guarantees()
+            guarantees += sale.get_asset_guarantees()
         if guarantees:
             to_create = []
             for key, grouped_guarantees in groupby(guarantees,
@@ -70,6 +67,14 @@ class Sale:
                     guarantee.sale_lines += g.sale_lines
                 to_create.append(guarantee._save_values)
             Guarantee.create(to_create)
+
+    def get_asset_guarantees(self):
+        guarantees = []
+        if not self.guarantee_type:
+            return guarantees
+        for line in self.lines:
+            guarantees += line.get_asset_guarantees()
+        return guarantees
 
     @classmethod
     def _group_asset_guarantees_key(cls, guarantee):
