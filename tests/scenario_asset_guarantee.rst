@@ -441,3 +441,26 @@ Guarantee should not apply on invoices until tomorrow::
     True
     >>> bool(invoice_line.line_in_guarantee)
     False
+
+Create a sale with guarnatee type and mixed products::
+
+    >>> sale = Sale()
+    >>> sale.party = customer
+    >>> sale.payment_term = payment_term
+    >>> sale.asset = second_asset
+    >>> sale.guarantee_type = guarantee_type
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = product
+    >>> sale_line.quantity = 10
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = second_product
+    >>> sale_line.quantity = 0
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.product = service
+    >>> sale_line.quantity = 10
+    >>> sale_line = sale.lines.new()
+    >>> sale_line.type = 'comment'
+    >>> sale_line.description = 'Comment'
+    >>> sale.click('quote')
+    >>> sale.click('confirm')
+    >>> sale.click('process')

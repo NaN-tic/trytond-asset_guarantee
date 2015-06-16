@@ -108,7 +108,9 @@ class SaleLine:
     def get_asset_guarantees(self):
         pool = Pool()
         Guarantee = pool.get('guarantee.guarantee')
-        if not self.asset_used or not self.move_done:
+        if (not self.product or self.product.type == 'service' or
+                not self.asset_used or not self.move_done or
+                not self.quantity):
             return []
         start_date = max(m.effective_date for m in self.moves)
         guarantee = Guarantee()
