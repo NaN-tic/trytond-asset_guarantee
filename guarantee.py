@@ -110,7 +110,8 @@ class SaleLine:
         Guarantee = pool.get('guarantee.guarantee')
         if (not self.product or self.product.type == 'service' or
                 not self.asset_used or not self.move_done or
-                not self.quantity):
+                not self.quantity
+                or all(m.state == 'cancel' for m in self.moves)):
             return []
         start_date = max(m.effective_date for m in self.moves)
         guarantee = Guarantee()
