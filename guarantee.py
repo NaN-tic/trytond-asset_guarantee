@@ -113,7 +113,8 @@ class SaleLine:
                 not self.quantity
                 or all(m.state == 'cancel' for m in self.moves)):
             return []
-        start_date = max(m.effective_date for m in self.moves)
+        start_date = max(m.effective_date for m in self.moves
+            if m.state != 'cancel')
         guarantee = Guarantee()
         guarantee.party = self.sale.party
         guarantee.document = str(self.asset_used)
