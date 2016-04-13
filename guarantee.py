@@ -7,17 +7,19 @@ from trytond.pyson import Eval
 from trytond.transaction import Transaction
 
 __all__ = ['Asset', 'Guarantee', 'Sale', 'SaleLine', 'InvoiceLine']
-__metaclass__ = PoolMeta
 
 
 class Asset:
     __name__ = 'asset'
+    __metaclass__ = PoolMeta
+
     guarantees = fields.One2Many('guarantee.guarantee', 'document',
         'Guarantees')
 
 
 class Guarantee:
     __name__ = 'guarantee.guarantee'
+    __metaclass__ = PoolMeta
 
     @classmethod
     def _get_origin(cls):
@@ -32,6 +34,7 @@ class Guarantee:
 
 class Sale:
     __name__ = 'sale.sale'
+    __metaclass__ = PoolMeta
 
     guarantee_type = fields.Many2One('guarantee.type', 'Guarantee Type',
         states={
@@ -84,6 +87,7 @@ class Sale:
 
 class SaleLine:
     __name__ = 'sale.line'
+    __metaclass__ = PoolMeta
 
     @classmethod
     def __setup__(cls):
@@ -128,6 +132,7 @@ class SaleLine:
 
 class InvoiceLine:
     __name__ = 'account.invoice.line'
+    __metaclass__ = PoolMeta
 
     @classmethod
     def __setup__(cls):
