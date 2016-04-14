@@ -145,19 +145,13 @@ class InvoiceLine:
         pool = Pool()
         Date = pool.get('ir.date')
         today = Date.today()
-        changes = {}
-        if self.invoice_asset and self.invoice_asset.guarantees:
+        if (self.invoice and self.invoice_asset
+                and self.invoice_asset.guarantees):
             invoice_date = self.invoice.invoice_date or today
             for guarantee in self.invoice_asset.guarantees:
                 if guarantee.applies_for_date(invoice_date):
-                    changes['guarantee'] = guarantee.id
-                    changes['guarantee.rec_name'] = guarantee.rec_name
                     self.guarantee = guarantee
-                    changes.update(self.on_change_guarantee())
-                    changes.update({
-                            'line_in_guarantee': (
-                                self.on_change_with_line_in_guarantee()),
-                            })
+                    self.on_change_guarantee()
+                    self.line_in_guarantee = self.on_change_with_line_in_guarantee()
                     break
-        changes.update(self.on_change_guarantee())
-        return changes
+        self.on_change_guarantee()
