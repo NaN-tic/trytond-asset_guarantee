@@ -8,14 +8,15 @@ from trytond.tests.test_tryton import (doctest_setup, doctest_teardown,
     doctest_checker)
 
 
-class TestCase(ModuleTestCase):
+class AssetGuaranteeTestCase(ModuleTestCase):
     'Test Asset Guarantee module'
     module = 'asset_guarantee'
 
 
 def suite():
     suite = trytond.tests.test_tryton.suite()
-    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TestCase))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(
+        AssetGuaranteeTestCase))
     suite.addTests(doctest.DocFileSuite('scenario_asset_guarantee.rst',
             setUp=doctest_setup, tearDown=doctest_teardown, encoding='utf-8',
             optionflags=doctest.REPORT_ONLY_FIRST_FAILURE,
